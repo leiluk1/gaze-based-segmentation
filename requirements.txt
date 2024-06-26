@@ -1,0 +1,16 @@
+SimpleITK
+connected-components-3d
+scikit-image
+lightning
+opencv-python==4.7.0.68
+torch
+torchmetrics
+torchvision
+numpy==1.26.4
+scikit-learn
+pandas
+tqdm
+clearml
+tensorboard
+notebook
+imutils
