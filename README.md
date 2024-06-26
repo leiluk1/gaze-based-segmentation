@@ -35,7 +35,7 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 
 For instance, assume that the preprocessed data is stored in directory `data`, the MedSAM model is placed in `weigths/medsam` folder, and the model checkpoints should be saved in `train_point_prompt`. Then, to train the model, run the following commands:
 
-1. WORD (with 10% random preprocessing):
+1. WORD data preprocessing (with 10% saved on a disk):
     ```
     python src/preprocess_CT.py --nii_path "./data/WORD-V0.1.0/imagesTr" --gt_path "./data/WORD-V0.1.0/labelsTr" --img_name_suffix ".nii.gz" --npy_path "./data/WORD/train_" --proportion 0.1
     ```
@@ -46,14 +46,14 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
 
 2. Fine-tuning:
 
-    2.1. One point prompt:
+    One point prompt:
 
-        ```
-        python src/train_point_prompt.py --tr_npy_path "data/WORD/train_CT_Abd/" --val_npy_path "data/WORD/val_CT_Abd/" --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" --max_epochs 200 --batch_size 24 --num_workers 0
-        ```
+    ```
+    python src/train_point_prompt.py --tr_npy_path "data/WORD/train_CT_Abd/" --val_npy_path "data/WORD/val_CT_Abd/" --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" --max_epochs 200 --batch_size 24 --num_workers 0
+    ```
 
-    2.2. An example of the prompt with 20 points:
-    
-        ```
-        python src/train_point_prompt.py --tr_npy_path "data/WORD/train_CT_Abd/" --val_npy_path "data/WORD/val_CT_Abd/" --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" --max_epochs 200 --batch_size 24 --num_workers 0 --num_points 20
-        ```
+    An example of the prompt with 20 points:
+
+    ```
+    python src/train_point_prompt.py --tr_npy_path "data/WORD/train_CT_Abd/" --val_npy_path "data/WORD/val_CT_Abd/" --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" --max_epochs 200 --batch_size 24 --num_workers 0 --num_points 20
+    ```
