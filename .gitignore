@@ -3,3 +3,6 @@ __pycache__/
 weights/sam/
 weights/medsam/
 data/
+lightning_logs/
+logs/
+MedSAM/
