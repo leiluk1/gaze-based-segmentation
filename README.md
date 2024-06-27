@@ -14,7 +14,7 @@
 
     ```
     wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth  -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
-    gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/
+    gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/  # download MedSAM checkpoint
     ```
 
 3. Run docker container as daemon:
