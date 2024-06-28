@@ -4,7 +4,7 @@
 
 1. Build docker container:
     ```
-    docker build .
+    docker build -t medsam_ft:latest .
     ```
 
 2. Download data and model checkpoints to `data` and `weights`, respectively:
@@ -13,7 +13,10 @@
     ```
 
     ```
-    wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth  -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
+    wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
+    ```
+
+    ```
     gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/  # download MedSAM checkpoint
     ```
 
