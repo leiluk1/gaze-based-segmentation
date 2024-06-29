@@ -7,20 +7,7 @@
     docker build -t medsam_ft:latest .
     ```
 
-2. Download data and model checkpoints to `data` and `weights`, respectively:
-    ```
-    gdown 19OWCXZGrimafREhXm8O8w2HBHZTfxEgU -O ./data/  # download WORD dataset
-    ```
-
-    ```
-    wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
-    ```
-
-    ```
-    gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/  # download MedSAM checkpoint
-    ```
-
-3. Run docker container as daemon:
+2. Run docker container as daemon:
     ```
     docker run \
     -v ./data:/repo/data \
@@ -30,9 +17,38 @@
     -it -d --name medsam_ft medsam_ft
     ```
 
-4. Start bash inside the docker container:
+
+3. Start bash inside the docker container:
+    0. In order to run scripts in the background, install and launch screen:
+    ```
+    sudo apt install screen
+    ```
+
     ```
     docker exec -it medsam_ft bash
+    ```
+
+4. Download data and model checkpoints to `data` and `weights`, respectively:
+    ```
+    pip install gdown
+    gdown 19OWCXZGrimafREhXm8O8w2HBHZTfxEgU -O ./data/  # download WORD dataset
+    apt-get install p7zip-full
+    cd data
+    7z x WORD-V0.1.0.zip  # unzip WORD dataset
+    ```
+
+    ```
+    wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
+    ```
+
+    ```
+    gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/  # download MedSAM checkpoint
+    ``
+
+5. Inside the container, run the following commands to double check that dependencies are installed:
+    ```
+    pip install -r requirements.txt
+    pip install -e MedSAM/
     ```
 
 ## Training
@@ -63,10 +79,7 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --gt_path "./data/WORD-V0.1.0/labelsTr" \
     --img_name_suffix ".nii.gz" \
     --npy_path "./data/WORD/train_" \
-    --proportion 0.1
-    ```
-
-    ```
+    --proportion 0.1; \
     python src/preprocess_CT.py \
     --nii_path "./data/WORD-V0.1.0/imagesVal" \
     --gt_path "./data/WORD-V0.1.0/labelsVal" \
