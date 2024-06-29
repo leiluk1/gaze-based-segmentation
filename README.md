@@ -19,10 +19,13 @@
 
 
 3. Start bash inside the docker container:
+
     0. In order to run scripts in the background, install and launch screen:
     ```
     sudo apt install screen
     ```
+
+    1. Start bash:
 
     ```
     docker exec -it medsam_ft bash
@@ -43,7 +46,7 @@
 
     ```
     gdown 1UAmWL88roYR7wKlnApw5Bcuzf2iQgk6_ -O ./weights/medsam/  # download MedSAM checkpoint
-    ``
+    ```
 
 5. Inside the container, run the following commands to double check that dependencies are installed:
     ```
