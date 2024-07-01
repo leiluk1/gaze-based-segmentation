@@ -82,6 +82,11 @@ def get_parser():
         help="Disable data augmentation."
     )
     parser.add_argument(
+        '--gt_in_ram',
+        default=True, 
+        action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
         '--num_points',
         type=int,
         default=1,
@@ -111,12 +116,13 @@ def train(exp_name, args):
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")
 
     datamodule = NpyDataModule(
-            args.tr_npy_path,
-            args.val_npy_path,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers,
-            num_points=args.num_points,
-            data_aug=not args.disable_aug
+        args.tr_npy_path,
+        args.val_npy_path,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        num_points=args.num_points,
+        data_aug=not args.disable_aug,
+        gt_in_ram=args.gt_in_ram,
     )
     datamodule.setup()
 
