@@ -18,18 +18,15 @@ RUN apt-get update
 RUN apt-get -y install cuda-toolkit-12-3
 
 COPY requirements.txt /repo/requirements.txt
-COPY src /repo/src
 
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
 bash ~/miniconda.sh -b -p $HOME/miniconda && eval "$(/root/miniconda/bin/conda shell.bash hook)" && \
 conda init && conda config --set auto_activate_base true && \
-python3 -m pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 
+pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 && \
+git clone https://github.com/bowang-lab/MedSAM && pip install -e MedSAM/
 
 WORKDIR /repo
-
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
-
-RUN git clone https://github.com/bowang-lab/MedSAM && \
-python3 -m pip install -e MedSAM/
+RUN eval "$(/root/miniconda/bin/conda shell.bash hook)" && \
+pip install --no-cache-dir -r requirements.txt
 
 CMD ["/bin/bash"]

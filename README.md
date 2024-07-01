@@ -2,6 +2,13 @@
 
 ## Getting started
 
+0. Clone this repo and MedSAM repo inside:
+    ```
+    git clone https://github.com/leiluk1/gaze-based-segmentation.git
+    cd gaze-based-segmentation
+    git clone https://github.com/bowang-lab/MedSAM
+    ```
+
 1. Build docker container:
     ```
     docker build -t medsam_ft:latest .
@@ -10,10 +17,7 @@
 2. Run docker container as daemon:
     ```
     docker run \
-    -v ./data:/repo/data \
-    -v ./lightning_logs:/repo/lightning_logs \
-    -v ./logs:/repo/logs \
-    -v ./weights:/repo/weights \
+    -v .:/repo/ \
     --gpus all \
     -it -d --name medsam_ft medsam_ft
     ```
@@ -53,6 +57,11 @@
     ```
     pip install -r requirements.txt
     pip install -e MedSAM/
+    ```
+
+6. Initialize your clearml credentials via:
+    ```
+    clearml-init
     ```
 
 ## Training
@@ -104,6 +113,7 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --max_epochs 200 \
     --batch_size 24 \
     --num_workers 0
+    --no-gt_in_ram
     ```
 
     An example of the prompt with 20 points:
@@ -117,4 +127,5 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --batch_size 24 \
     --num_workers 0 \
     --num_points 20
+    --no-gt_in_ram
     ```
