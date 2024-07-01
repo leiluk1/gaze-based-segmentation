@@ -14,6 +14,7 @@
     -v ./lightning_logs:/repo/lightning_logs \
     -v ./logs:/repo/logs \
     -v ./weights:/repo/weights \
+    --gpus all \
     -it -d --name medsam_ft medsam_ft
     ```
 
