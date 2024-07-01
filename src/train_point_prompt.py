@@ -95,7 +95,8 @@ def train(exp_name, args):
     Task.init(
             project_name="medsam_point",
             tags=[
-                "fine_tuning",
+                "fine_tuning"
+                # "ideal_case"  # add tags if neccessary
             ],
             task_name=exp_name,
     )
@@ -106,8 +107,7 @@ def train(exp_name, args):
         lr=args.lr,
         weight_decay=args.weight_decay
     )
-    # checkpoint = torch.load(medsam_ckpt_path)
-    # medsam_model.load_state_dict(checkpoint, strict=False)
+    
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")
 
     datamodule = NpyDataModule(

@@ -69,8 +69,16 @@ class MedSAM(pl.LightningModule):
         gt2D = batch["gt2D"]
         coords_torch = batch["coords"]  # (B, N, 2)
 
+        # Fixed label (1)
         labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
-        # for random labels (0 or 1)
+
+        # Assign ones as labels for coords_in and zeros for coords_out
+        # num_points_in = int(coords_torch.shape[1] * 0.8)
+        # num_points_out = coords_torch.shape[1] - num_points_in
+        # labels_torch = torch.cat((torch.ones(coords_torch.shape[0], num_points_in), 
+        #                           torch.zeros(coords_torch.shape[0], num_points_out)), dim=1).long()
+
+        # Random labels (0 or 1)
         # labels_torch = torch.randint(low=0, high=2, size=(coords_torch.shape[0], coords_torch.shape[1])).long()  # (B, N)
 
         point_prompt = (coords_torch, labels_torch)
@@ -121,9 +129,7 @@ class MedSAM(pl.LightningModule):
         coords_torch = batch["coords"]  # (B, 2)
 
         labels_torch = torch.ones(coords_torch.shape[0]).long()  # (B,)
-        # for random labels (0 or 1)
-        # labels_torch = torch.randint(low=0, high=2, size=(coords_torch.shape[0], 1)).long()  # (B, 1)
-        
+
         labels_torch = labels_torch.unsqueeze(1)  # (B, 1)
 
         point_prompt = (coords_torch, labels_torch)
@@ -133,7 +139,7 @@ class MedSAM(pl.LightningModule):
         return medsam_lite_pred
 
     def configure_optimizers(self):
-       
+
         optimizer = torch.optim.AdamW(
             self.sam_model.parameters(),
             lr=self.lr,
