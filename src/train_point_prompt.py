@@ -100,7 +100,7 @@ def train(exp_name, args):
     Task.init(
             project_name="medsam_point",
             tags=[
-                "fine_tuning"
+                "fine_tuning",
                 # "ideal_case"  # add tags if neccessary
             ],
             task_name=exp_name,
@@ -112,7 +112,7 @@ def train(exp_name, args):
         lr=args.lr,
         weight_decay=args.weight_decay
     )
-    
+
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")
 
     datamodule = NpyDataModule(
@@ -128,7 +128,7 @@ def train(exp_name, args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath="logs/",
-        filename="{exp_name}-{epoch}-{val_loss:.2f}",
+        filename=f"{exp_name}-" + "{epoch}-{loss/val:.2f}",
         save_top_k=1,
         monitor="loss/val",
         mode="min",
