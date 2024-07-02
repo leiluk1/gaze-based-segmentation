@@ -110,7 +110,7 @@ def train(exp_name, args):
         medsam_checkpoint=args.medsam_checkpoint,
         freeze_image_encoder=True,
         lr=args.lr,
-        weight_decay=args.weight_decay, 
+        weight_decay=args.weight_decay,
         num_points=args.num_points
     )
 
