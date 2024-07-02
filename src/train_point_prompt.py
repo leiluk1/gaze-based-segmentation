@@ -120,7 +120,6 @@ def train(exp_name, args):
         args.val_npy_path,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
-        num_points=args.num_points,
         data_aug=not args.disable_aug,
         gt_in_ram=args.gt_in_ram,
     )
@@ -128,14 +127,14 @@ def train(exp_name, args):
 
     checkpoint_callback = ModelCheckpoint(
         dirpath="logs/",
-        filename=f"{exp_name}-" + "{epoch}-{loss/val:.2f}",
+        filename=f"{exp_name}-" + "{epoch}-{loss_val:.2f}",
         save_top_k=1,
-        monitor="loss/val",
+        monitor="loss_val",
         mode="min",
     )
 
     early_stop_callback = EarlyStopping(
-        monitor="loss/val",
+        monitor="loss_val",
         min_delta=1e-4,
         patience=10,
         verbose=False,

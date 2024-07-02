@@ -11,16 +11,14 @@ import cv2
 
 # Dataset class
 class NpyDataset(Dataset):
-    def __init__(self, data_root, image_size=1024, num_points=1, data_aug=True, phase="train", gt_in_ram=True):
+    def __init__(self, data_root, image_size=1024, data_aug=True, gt_in_ram=True):
         self.data_root = data_root
         self.gt_path = join(data_root, 'gts')
         self.img_path = join(data_root, 'imgs')
         self.gt_path_files = sorted(glob.glob(join(self.gt_path, '**/*.npy'), recursive=True))
         self.gt_path_files = [file for file in self.gt_path_files if os.path.isfile(join(self.img_path, os.path.basename(file)))]
         self.image_size = image_size
-        self.num_points = num_points
         self.data_aug = data_aug
-        self.phase = phase
         self.gt_in_ram = gt_in_ram
         self.data = self.read_data()
 
@@ -44,7 +42,7 @@ class NpyDataset(Dataset):
                     thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
                 )
                 cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-        
+
                 for i in range(len(cnts)):
                     if self.gt_in_ram:
                         mask = np.zeros_like(gt2D)
@@ -54,10 +52,7 @@ class NpyDataset(Dataset):
                         gt_segm = np.uint8(mask == 255)
                         data.append([img_path, gt_segm])
                     else:
-                        assert (
-                            (self.image_size, self.image_size) == gt2D.shape,
-                            "GT size does not match image size"
-                        )
+                        assert (self.image_size, self.image_size) == gt2D.shape, "GT size does not match image size"
                         data.append([img_path, cnts, i])
         return data
 
@@ -70,8 +65,8 @@ class NpyDataset(Dataset):
             cv2.drawContours(
                 mask, cnts, i, (255, 255, 255), thickness=cv2.FILLED
             )
-            gt2D = np.uint8(mask == 255)    
-            
+            gt2D = np.uint8(mask == 255)
+
         img_name = os.path.basename(img_path)
         img_1024 = np.load(img_path, 'r', allow_pickle=True)  # (H, W, 3)
         # convert the shape to (3, H, W)
@@ -86,45 +81,8 @@ class NpyDataset(Dataset):
             if random.random() > 0.5:
                 img_1024 = np.ascontiguousarray(np.flip(img_1024, axis=-2))
                 gt2D = np.ascontiguousarray(np.flip(gt2D, axis=-2))
+
         gt2D = np.uint8(gt2D > 0)
-        assert self.num_points > 0, "The number of points in the prompt cannot be less than 1"
-        assert self.phase in ["train", "test"], "Incorrect phase name"
-        y_indices, x_indices = np.where(gt2D == 1)
-        if self.num_points == 1:
-            x_point = np.random.choice(x_indices)
-            y_point = np.random.choice(y_indices)
-            coords = np.array([x_point, y_point])[None, ...]
-        else:
-            # if self.phase == "train":
-            #     chosen_indices = np.random.choice(len(x_indices), self.num_points, replace=False)
-            #     x_points = x_indices[chosen_indices]
-            #     y_points = y_indices[chosen_indices]
-            #     coords = np.array([x_points, y_points]).T
-            # else: 
-            
-            y_indices_out, x_indices_out = np.where(gt2D == 0)
-
-            num_points_in = int(self.num_points * 0.8)
-            num_points_out = self.num_points - num_points_in
-
-            chosen_indices_in = np.random.choice(len(x_indices), num_points_in, replace=False)
-            chosen_indices_out = np.random.choice(len(x_indices_out), num_points_out, replace=False)
-            x_points_in = x_indices[chosen_indices_in]
-            y_points_in = y_indices[chosen_indices_in]
-
-            x_points_out = x_indices_out[chosen_indices_out]
-            y_points_out = y_indices_out[chosen_indices_out]
-
-            coords_in = np.array([x_points_in, y_points_in]).T
-            coords_out = np.array([x_points_out, y_points_out]).T
-            coords = np.concatenate((coords_in, coords_out), axis=0)
-            
-            # chosen_indices = np.random.choice(len(x_indices), self.num_points, replace=False)
-            # x_points = x_indices[chosen_indices]
-            # y_points = y_indices[chosen_indices]
-            # coords = np.array([x_points, y_points]).T
-
-        # Randomly sample a point from the gt at scale 1024
         gt2D_256 = cv2.resize(
             gt2D,
             (256, 256),
@@ -133,7 +91,7 @@ class NpyDataset(Dataset):
         return {
             "image": torch.tensor(img_1024).float(),
             "gt2D": torch.tensor(gt2D_256[None, :, :]).long(),
-            "coords": torch.tensor(coords).float(),
+            "gt2D_orig": torch.tensor(gt2D).long(),
             "image_name": img_name
         }
 
@@ -146,7 +104,6 @@ class NpyDataModule(pl.LightningDataModule):
         batch_size=8,
         test_size=0.1,
         num_workers=0,
-        num_points=1,
         data_aug=True,
         gt_in_ram=True,
     ):
@@ -155,23 +112,18 @@ class NpyDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.test_size = test_size
         self.num_workers = num_workers
-        self.num_points = num_points
         self.data_aug = data_aug
         self.gt_in_ram = gt_in_ram
 
     def setup(self):
         self.train_dataset = NpyDataset(
             data_root=self.train_data_path,
-            num_points=self.num_points,
             data_aug=self.data_aug,
-            phase="train",
             gt_in_ram=self.gt_in_ram,
         )
         self.valntest_dataset = NpyDataset(
-            data_root=self.val_data_path, 
-            num_points=self.num_points, 
+            data_root=self.val_data_path,  
             data_aug=False,
-            phase="test",
             gt_in_ram=self.gt_in_ram,
         )
         self.val_dataset, self.test_dataset = random_split(self.valntest_dataset, [1 - self.test_size, self.test_size])

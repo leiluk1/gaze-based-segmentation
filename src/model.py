@@ -14,7 +14,8 @@ class MedSAM(pl.LightningModule):
         medsam_checkpoint: str = None,
         freeze_image_encoder: bool = False,
         lr: float = 0.00005,
-        weight_decay: float = 0.01
+        weight_decay: float = 0.01,
+        num_points: int = 20
     ):
         super().__init__()
         self.sam_model = sam_model_registry[backbone](checkpoint=medsam_checkpoint)
@@ -44,6 +45,8 @@ class MedSAM(pl.LightningModule):
         )
         self.ce_loss = nn.BCEWithLogitsLoss(reduction="mean")
 
+        self.num_points = num_points
+
     def forward(self, image, point_prompt):
         image_embedding = self.image_encoder(image)  # (B, 256, 64, 64)
         # not need to convert box to 1024x1024 grid
@@ -66,28 +69,16 @@ class MedSAM(pl.LightningModule):
     def _shared_step(self, batch, batch_idx, 
                      phase: str, calculate_metrics: bool = True):
         image = batch["image"]
-        gt2D = batch["gt2D"]
-        coords_torch = batch["coords"]  # (B, N, 2)
+        gt2D = batch["gt2D"]  # (B, 256, 256)
+        gt2D_orig = batch["gt2D_orig"]  # (B, 1024, 1024)
 
-        # Fixed label (1)
-        labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
-
-        # Assign ones as labels for coords_in and zeros for coords_out
-        # num_points_in = int(coords_torch.shape[1] * 0.8)
-        # num_points_out = coords_torch.shape[1] - num_points_in
-        # labels_torch = torch.cat((torch.ones(coords_torch.shape[0], num_points_in), 
-        #                           torch.zeros(coords_torch.shape[0], num_points_out)), dim=1).long()
-
-        # Random labels (0 or 1)
-        # labels_torch = torch.randint(low=0, high=2, size=(coords_torch.shape[0], coords_torch.shape[1])).long()  # (B, N)
-
-        point_prompt = (coords_torch, labels_torch)
+        point_prompt = self.generate_point_prompt(gt2D_orig, phase)
 
         medsam_lite_pred = self(image, point_prompt)
         loss = self.seg_loss(medsam_lite_pred, gt2D) + self.ce_loss(medsam_lite_pred, gt2D.float())
 
         logs = {
-            f"loss/{phase}": loss,
+            f"loss_{phase}": loss,
             "step": self.current_epoch + 1
         }
 
@@ -161,6 +152,64 @@ class MedSAM(pl.LightningModule):
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": "loss/val"
+                "monitor": "loss_val"
             }
         }
+
+    def generate_point_prompt(self, gt2D_orig, phase):
+        assert self.num_points > 0, "The number of points in the prompt cannot be less than 1"
+        coords_torch = []
+        for i in range(gt2D_orig.shape[0]):  # B
+            gt2D = gt2D_orig[i].cpu().numpy()
+            y_indices, x_indices = np.where(gt2D == 1)
+            if self.num_points == 1:
+                x_point = np.random.choice(x_indices)
+                y_point = np.random.choice(y_indices)
+                coords = np.array([x_point, y_point])[None, ...]
+            else:
+                # if phase == "train":
+                #     chosen_indices = np.random.choice(len(x_indices), self.num_points, replace=False)
+                #     x_points = x_indices[chosen_indices]
+                #     y_points = y_indices[chosen_indices]
+                #     coords = np.array([x_points, y_points]).T
+                # else:
+
+                y_indices_out, x_indices_out = np.where(gt2D == 0)
+
+                num_points_in = int(self.num_points * 0.8)
+                num_points_out = self.num_points - num_points_in
+
+                chosen_indices_in = np.random.choice(len(x_indices), num_points_in, replace=False)
+                chosen_indices_out = np.random.choice(len(x_indices_out), num_points_out, replace=False)
+                x_points_in = x_indices[chosen_indices_in]
+                y_points_in = y_indices[chosen_indices_in]
+
+                x_points_out = x_indices_out[chosen_indices_out]
+                y_points_out = y_indices_out[chosen_indices_out]
+                
+                coords_in = np.array([x_points_in, y_points_in]).T
+                coords_out = np.array([x_points_out, y_points_out]).T
+                coords = np.concatenate((coords_in, coords_out), axis=0)  # (N, 2)
+
+            # chosen_indices = np.random.choice(len(x_indices), self.num_points, replace=False)
+            # x_points = x_indices[chosen_indices]
+            # y_points = y_indices[chosen_indices]
+            # coords = np.array([x_points, y_points]).T
+
+            coords_torch.append(torch.tensor(coords).float())
+
+        coords_torch = torch.stack(coords_torch).cuda()  # (B, N, 2)
+
+        # Fixed label (1)
+        labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
+
+        # Assign ones as labels for coords_in and zeros for coords_out
+        # num_points_in = int(coords_torch.shape[1] * 0.8)
+        # num_points_out = coords_torch.shape[1] - num_points_in
+        # labels_torch = torch.cat((torch.ones(coords_torch.shape[0], num_points_in),
+        #                           torch.zeros(coords_torch.shape[0], num_points_out)), dim=1).long()
+
+        # Random labels (0 or 1)
+        # labels_torch = torch.randint(low=0, high=2, size=(coords_torch.shape[0], coords_torch.shape[1])).long()  # (B, N)
+
+        return (coords_torch, labels_torch)
