@@ -82,8 +82,13 @@ def get_parser():
         help="Disable data augmentation."
     )
     parser.add_argument(
+        '--freeze_prompt_encoder',
+        default=True,
+        action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
         '--gt_in_ram',
-        default=True, 
+        default=True,
         action=argparse.BooleanOptionalAction
     )
     parser.add_argument(
@@ -101,6 +106,7 @@ def train(exp_name, args):
             project_name="medsam_point",
             tags=[
                 "fine_tuning",
+                "random_points_ft"
                 # "ideal_case"  # add tags if neccessary
             ],
             task_name=exp_name,
@@ -109,6 +115,7 @@ def train(exp_name, args):
     medsam_model = MedSAM(
         medsam_checkpoint=args.medsam_checkpoint,
         freeze_image_encoder=True,
+        freeze_prompt_encoder=args.freeze_prompt_encoder,
         lr=args.lr,
         weight_decay=args.weight_decay,
         num_points=args.num_points
