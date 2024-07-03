@@ -46,6 +46,23 @@
     ```
 
     ```
+    wget https://zenodo.org/records/5903037/files/Subtask1.zip?download=1 -O ./data/Subtask1.zip # download AbdomenCT-1K 
+    wget https://zenodo.org/records/5903037/files/Subtask2.zip?download=1 -O ./data/Subtask2.zip # download AbdomenCT-1K 
+    cd data
+    unzip Subtask1.zip
+    uzip Subtask2.zip
+    cd Subtask2/TrainImage
+    ls | xargs -I {} mv {} 2_{}
+    cd ../TrainMask
+    ls | xargs -I {} mv {} 2_{}
+    cd ..
+    mv TrainImage/* ../Subtask1/TrainImage/
+    mv TrainMask/* ../Subtask1/TrainMask/
+    cd ..
+    rm -r Subtask2
+    ```
+
+    ```
     wget https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth -O weights/sam/sam_vit_b_01ec64.pth  # download SAM checkpoint
     ```
 
@@ -85,21 +102,31 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 
 For instance, assume that the preprocessed data is stored in directory `data`, the MedSAM model is placed in `weigths/medsam` folder, and the model checkpoints should be saved in `train_point_prompt`. Then, to train the model, run the following commands:
 
-1. WORD data preprocessing (with 10% saved on a disk):
-    ```
-    python src/preprocess_CT.py \
-    --nii_path "./data/WORD-V0.1.0/imagesTr" \
-    --gt_path "./data/WORD-V0.1.0/labelsTr" \
-    --img_name_suffix ".nii.gz" \
-    --npy_path "./data/WORD/train_" \
-    --proportion 0.1; \
-    python src/preprocess_CT.py \
-    --nii_path "./data/WORD-V0.1.0/imagesVal" \
-    --gt_path "./data/WORD-V0.1.0/labelsVal" \
-    --img_name_suffix ".nii.gz" \
-    --npy_path "./data/WORD/val_" \
-    --proportion 0.1
-    ```
+1. Data preprocessing (with 10% saved on a disk):
+    1. WORD Dataset:
+        ```
+        python src/preprocess_CT.py \
+        --nii_path "./data/WORD-V0.1.0/imagesTr" \
+        --gt_path "./data/WORD-V0.1.0/labelsTr" \
+        --img_name_suffix ".nii.gz" \
+        --npy_path "./data/WORD/train_" \
+        --proportion 0.1; \
+        python src/preprocess_CT.py \
+        --nii_path "./data/WORD-V0.1.0/imagesVal" \
+        --gt_path "./data/WORD-V0.1.0/labelsVal" \
+        --img_name_suffix ".nii.gz" \
+        --npy_path "./data/WORD/val_" \
+        --proportion 0.1
+        ```
+
+    2. AbdomenCT-1K Dataset:
+        ```
+        python src/preprocess_CT.py \
+        --nii_path "./data/Subtask1/TrainImage" \
+        --gt_path "./data/Subtask1/TrainMask" \
+        --npy_path "./data/AbdomenCT/train_" \
+        --proportion 0.1
+        ```
 
 2. Fine-tuning:
 
