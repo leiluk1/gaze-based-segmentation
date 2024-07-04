@@ -29,6 +29,12 @@ def get_parser():
         required=True
     )
     parser.add_argument(
+        '--test_npy_path',
+        type=str,
+        help="Path to the test data root directory.",
+        required=True
+    )
+    parser.add_argument(
         '--medsam_checkpoint',
         type=str,
         help="Path to the MedSAM checkpoint.",
@@ -106,8 +112,9 @@ def train(exp_name, args):
             project_name="medsam_point",
             tags=[
                 "fine_tuning",
-                "random_points_ft"
-                # "ideal_case"  # add tags if neccessary
+                "fixed_label_1",
+                # "random_points_ft",
+                # "ideal_case",  # add tags if neccessary
             ],
             task_name=exp_name,
     )
@@ -126,6 +133,7 @@ def train(exp_name, args):
     datamodule = NpyDataModule(
         args.tr_npy_path,
         args.val_npy_path,
+        args.test_npy_path,
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         data_aug=not args.disable_aug,

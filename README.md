@@ -43,7 +43,6 @@
     apt-get install p7zip-full
     cd data
     7z x WORD-V0.1.0.zip  # unzip WORD dataset
-    cd data
     wget https://github.com/HiLab-git/WORD/raw/main/WORD_V0.1.0_labelsTs.zip  # download WORD test annotations
     unzip WORD_V0.1.0_labelsTs.zip -d ./WORD-V0.1.0/
     ```
@@ -145,6 +144,7 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     python src/train_point_prompt.py \
     --tr_npy_path "data/WORD/train_CT_Abd/" \
     --val_npy_path "data/WORD/val_CT_Abd/" \
+    --test_npy_path "data/WORD/test_CT_Abd/" \
     --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" \
     --max_epochs 200 \
     --batch_size 24 \
@@ -158,6 +158,7 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     python src/train_point_prompt.py \
     --tr_npy_path "data/WORD/train_CT_Abd/" \
     --val_npy_path "data/WORD/val_CT_Abd/" \
+    --test_npy_path "data/WORD/test_CT_Abd/" \
     --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" \
     --max_epochs 200 \
     --batch_size 24 \
@@ -175,6 +176,7 @@ One point prompt:
     python src/test_model.py \
     --tr_npy_path "data/WORD/train_CT_Abd/" \
     --val_npy_path "data/WORD/val_CT_Abd/" \
+    --test_npy_path "data/WORD/test_CT_Abd/" \
     --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" \
     --checkpoint "exp_name=0-epoch=42-val_loss=0.00.ckpt" \
     --batch_size 24 \

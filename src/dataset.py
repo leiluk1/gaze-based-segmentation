@@ -101,16 +101,16 @@ class NpyDataModule(pl.LightningDataModule):
         self,
         train_data_path,
         val_data_path,
+        test_npy_path,
         batch_size=8,
-        test_size=0.1,
         num_workers=0,
         data_aug=True,
         gt_in_ram=True,
     ):
         self.train_data_path = train_data_path
         self.val_data_path = val_data_path
+        self.test_npy_path = test_npy_path
         self.batch_size = batch_size
-        self.test_size = test_size
         self.num_workers = num_workers
         self.data_aug = data_aug
         self.gt_in_ram = gt_in_ram
@@ -121,12 +121,16 @@ class NpyDataModule(pl.LightningDataModule):
             data_aug=self.data_aug,
             gt_in_ram=self.gt_in_ram,
         )
-        self.valntest_dataset = NpyDataset(
-            data_root=self.val_data_path,  
+        self.val_dataset = NpyDataset(
+            data_root=self.val_data_path,
             data_aug=False,
             gt_in_ram=self.gt_in_ram,
         )
-        self.val_dataset, self.test_dataset = random_split(self.valntest_dataset, [1 - self.test_size, self.test_size])
+        self.test_dataset = NpyDataset(
+            data_root=self.test_npy_path,
+            data_aug=False,
+            gt_in_ram=self.gt_in_ram,
+        )
 
         print("train size:", len(self.train_dataset))
         print("val size:", len(self.val_dataset))

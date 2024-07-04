@@ -29,13 +29,13 @@ class MedSAM(pl.LightningModule):
             # freeze prompt encoder
             for param in self.prompt_encoder.parameters():
                 param.requires_grad = False
-                print("Prompt encoder is frozen")
+            print("Prompt encoder is frozen")
 
         self.freeze_image_encoder = freeze_image_encoder
         if self.freeze_image_encoder:
             for param in self.image_encoder.parameters():
                 param.requires_grad = False
-                print("Image encoder is frozen")
+            print("Image encoder is frozen")
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -209,10 +209,10 @@ class MedSAM(pl.LightningModule):
         labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
 
         # Padding
-        num_padding = np.random.randint(0, 20)
-        padding_indices = np.random.choice(coords_torch.shape[1], num_padding, replace=False)
-        coords_torch[:, padding_indices, :] = torch.tensor([0, 0], dtype=torch.float, device=coords_torch.device)
-        labels_torch[:, padding_indices] = -1
+        # num_padding = np.random.randint(0, 20)
+        # padding_indices = np.random.choice(coords_torch.shape[1], num_padding, replace=False)
+        # coords_torch[:, padding_indices, :] = torch.tensor([0, 0], dtype=torch.float, device=coords_torch.device)
+        # labels_torch[:, padding_indices] = -1
 
         # Assign ones as labels for coords_in and zeros for coords_out
         # num_points_in = int(coords_torch.shape[1] * 0.8)
