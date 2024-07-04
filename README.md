@@ -43,6 +43,9 @@
     apt-get install p7zip-full
     cd data
     7z x WORD-V0.1.0.zip  # unzip WORD dataset
+    cd data
+    wget https://github.com/HiLab-git/WORD/raw/main/WORD_V0.1.0_labelsTs.zip  # download WORD test annotations
+    unzip WORD_V0.1.0_labelsTs.zip -d ./WORD-V0.1.0/
     ```
 
     ```
@@ -116,6 +119,12 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
         --gt_path "./data/WORD-V0.1.0/labelsVal" \
         --img_name_suffix ".nii.gz" \
         --npy_path "./data/WORD/val_" \
+        --proportion 0.1; \
+        python src/preprocess_CT.py \
+        --nii_path "./data/WORD-V0.1.0/imagesTs" \
+        --gt_path "./data/WORD-V0.1.0/labelsTs" \
+        --img_name_suffix ".nii.gz" \
+        --npy_path "./data/WORD/test_" \
         --proportion 0.1
         ```
 
