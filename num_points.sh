@@ -6,6 +6,7 @@ do
     python src/train_point_prompt.py \
     --tr_npy_path "./data/WORD/train_CT_Abd/" \
     --val_npy_path "./data/WORD/val_CT_Abd/" \
+    --test_npy_path "data/WORD/test_CT_Abd/" \
     --medsam_checkpoint "./weights/medsam/medsam_vit_b.pth" \
     --max_epochs 200 \
     --batch_size 24 \
