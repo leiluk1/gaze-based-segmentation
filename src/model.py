@@ -191,7 +191,7 @@ class MedSAM(pl.LightningModule):
 
                 x_points_out = x_indices_out[chosen_indices_out]
                 y_points_out = y_indices_out[chosen_indices_out]
-                
+
                 coords_in = np.array([x_points_in, y_points_in]).T
                 coords_out = np.array([x_points_out, y_points_out]).T
                 coords = np.concatenate((coords_in, coords_out), axis=0)  # (N, 2)
@@ -209,7 +209,7 @@ class MedSAM(pl.LightningModule):
         labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
 
         # Padding
-        # num_padding = np.random.randint(0, 20)
+        # num_padding = np.random.randint(0, self.num_points)
         # padding_indices = np.random.choice(coords_torch.shape[1], num_padding, replace=False)
         # coords_torch[:, padding_indices, :] = torch.tensor([0, 0], dtype=torch.float, device=coords_torch.device)
         # labels_torch[:, padding_indices] = -1
