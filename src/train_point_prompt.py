@@ -112,9 +112,9 @@ def train(exp_name, args):
             project_name="medsam_point",
             tags=[
                 "fine_tuning",
-                "fixed_label_1",
-                # "random_points_ft",
-                # "ideal_case",  # add tags if neccessary
+                "random_label",
+                # "fixed_label_1",
+                # "remove_point_embedding",  # add tags if neccessary
             ],
             task_name=exp_name,
     )
@@ -190,7 +190,7 @@ def main():
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-    exp_name = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+    exp_name = datetime.now().strftime("%d-%m-%Y-%H:%M:%S")
     test_dice = train(exp_name, args)
     print(test_dice)
 
