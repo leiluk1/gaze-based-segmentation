@@ -6,3 +6,4 @@ data/
 lightning_logs/
 logs/
 MedSAM/
+.ipynb_checkpoints/
