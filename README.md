@@ -90,6 +90,7 @@ This training script demonstrates training of MedSAM with point prompts on the W
 The training script `src/train_point_prompt.py` takes the following arguments:
 * `--tr_npy_path`:` Path to the train data root directory;
 * `--val_npy_path`: Path to the validation data root directory;
+* `--test_npy_path`: Path to the test data root directory;
 * `--medsam_checkpoint`: Path to the MedSAM checkpoint;
 * `--max_epochs`: Maximum number of epochs;
 * `--batch_size`: Batch size;
@@ -99,6 +100,8 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 * `--accumulate_grad_batches`: Accumulate grad batches;
 * `--seed`: Random seed for reproducibility;
 * `--disable_aug`: Disable data augmentation;
+* `--freeze_prompt_encoder`: Freeze prompt emcoder;
+* `--gt_in_ram`: Store gt in RAM during data processing;
 * `--num_points`: Number of points in the prompt.
 
 
