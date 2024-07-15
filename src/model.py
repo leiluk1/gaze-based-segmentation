@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from segment_anything import sam_model_registry
 from torch import nn
+import torch.nn.functional as F
 from torchmetrics import Dice, JaccardIndex
 
 
@@ -16,7 +17,8 @@ class MedSAM(pl.LightningModule):
         freeze_prompt_encoder: bool = False,
         lr: float = 0.00005,
         weight_decay: float = 0.01,
-        num_points: int = 20
+        num_points: int = 20,
+        is_mask_diff: bool = False
     ):
         super().__init__()
         self.sam_model = sam_model_registry[backbone](checkpoint=medsam_checkpoint)
@@ -51,6 +53,7 @@ class MedSAM(pl.LightningModule):
         self.ce_loss = nn.BCEWithLogitsLoss(reduction="mean")
 
         self.num_points = num_points
+        self.is_mask_diff = is_mask_diff
 
     def forward(self, image, point_prompt):
         image_embedding = self.image_encoder(image)  # (B, 256, 64, 64)
@@ -61,7 +64,7 @@ class MedSAM(pl.LightningModule):
             boxes=None,
             masks=None,
         )
-        low_res_masks, iou_predictions = self.mask_decoder(
+        low_res_masks, _ = self.mask_decoder(
             image_embeddings=image_embedding,  # (B, 256, 64, 64)
             image_pe=self.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
             sparse_prompt_embeddings=sparse_embeddings,  # (B, 2, 256)
@@ -71,13 +74,41 @@ class MedSAM(pl.LightningModule):
 
         return low_res_masks
 
-    def _shared_step(self, batch, batch_idx, 
+    def base_pred(self, image, point_prompt):
+        with torch.no_grad():
+            image_embedding = self.image_encoder(image)  # (B, 256, 64, 64)  
+            sparse_embeddings, dense_embeddings = self.prompt_encoder(
+                points=point_prompt,
+                boxes=None,
+                masks=None,
+            )
+            low_res_masks, _ = self.mask_decoder(
+                image_embeddings=image_embedding,  # (B, 256, 64, 64)
+                image_pe=self.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
+                sparse_prompt_embeddings=sparse_embeddings,  # (B, 2, 256)
+                dense_prompt_embeddings=dense_embeddings,  # (B, 256, 64, 64)
+                multimask_output=False,
+            )  # (B, 1, 256, 256)
+
+            ori_res_masks = F.interpolate(
+                low_res_masks,
+                size=(image.shape[2], image.shape[3]),
+                mode="bilinear",
+                align_corners=False,
+            )
+
+        return ori_res_masks
+
+    def _shared_step(self, batch, batch_idx,
                      phase: str, calculate_metrics: bool = True):
         image = batch["image"]
         gt2D = batch["gt2D"]  # (B, 256, 256)
         gt2D_orig = batch["gt2D_orig"]  # (B, 1024, 1024)
 
-        point_prompt = self.generate_point_prompt(gt2D_orig, phase)
+        if self.is_mask_diff:
+            point_prompt = self.generate_prompt_mask_diff(image, gt2D_orig)
+        else:
+            point_prompt = self.generate_point_prompt(gt2D_orig, phase)
 
         medsam_lite_pred = self(image, point_prompt)
         loss = self.seg_loss(medsam_lite_pred, gt2D) + self.ce_loss(medsam_lite_pred, gt2D.float())
@@ -222,5 +253,57 @@ class MedSAM(pl.LightningModule):
 
         # Random labels (0 or 1)
         # labels_torch = torch.randint(low=0, high=2, size=(coords_torch.shape[0], coords_torch.shape[1])).long()  # (B, N)
+
+        return (coords_torch, labels_torch)
+
+    def generate_prompt_mask_diff(self, image, gt2D_orig):
+        coords_torch_base = []
+        for i in range(gt2D_orig.shape[0]):  # B
+            gt2D = gt2D_orig[i].cpu().numpy()
+            y_indices, x_indices = np.where(gt2D == 1)
+            x_point = np.random.choice(x_indices)
+            y_point = np.random.choice(y_indices)
+            coords_base = np.array([x_point, y_point])[None, ...]
+            coords_torch_base.append(torch.tensor(coords_base).float())
+        coords_torch_base = torch.stack(coords_torch_base).cuda()  # (B, N, 2)
+        labels_torch_base = torch.ones(coords_torch_base.shape[0], coords_torch_base.shape[1]).long()
+        point_prompt = (coords_torch_base, labels_torch_base)
+
+        base_pred_logits = self.base_pred(image, point_prompt)
+        base_pred_binary = (base_pred_logits > self.sam_model.mask_threshold).int()
+        gt_mask = gt2D_orig.unsqueeze(1)
+        delta = (base_pred_binary - (gt_mask > 0).int()).abs().squeeze(1)
+
+        # num_points = np.random.randint(2, self.num_points)
+        gt_mask_for_idx = gt_mask.squeeze(1)
+
+        coords_list = point_prompt[0].tolist()
+        labels_list = point_prompt[1].tolist()
+
+        for num_sample in range(delta.size(0)):
+            conditions = [
+                (delta[num_sample] == 1, 0.7),  # from mask differences
+                (gt_mask_for_idx[num_sample] == 1, 0.2),  # from gt mask
+                (gt_mask_for_idx[num_sample] == 0, 0.1)  # from outside of gt mask
+            ]
+
+            for pos, ratio in conditions:
+                y_idx, x_idx = torch.where(pos)
+                rnd_idx = np.random.randint(0, len(y_idx), int(ratio*self.num_points))
+                coords_list[num_sample].extend([[x_idx[id].item(), y_idx[id].item()] for id in rnd_idx])
+                labels_list[num_sample].extend([1] * len(rnd_idx))
+
+        coords_torch = torch.tensor(
+            coords_list,
+            dtype=torch.float64,
+            requires_grad=True,
+            device=self.device
+        )
+        labels_torch = torch.tensor(
+            labels_list,
+            dtype=torch.float64,
+            requires_grad=True,
+            device=self.device
+        )
 
         return (coords_torch, labels_torch)

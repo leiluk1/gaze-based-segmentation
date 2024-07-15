@@ -103,6 +103,11 @@ def get_parser():
         default=1,
         help="Number of points in prompt."
     )
+    parser.add_argument(
+        '--mask_diff',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
 
     return parser
 
@@ -112,7 +117,8 @@ def train(exp_name, args):
             project_name="medsam_point",
             tags=[
                 "fine_tuning",
-                "random_label",
+                "fixed_label_1",
+                "mask_diff"
                 # "fixed_label_1",
                 # "remove_point_embedding",  # add tags if neccessary
             ],
@@ -125,7 +131,8 @@ def train(exp_name, args):
         freeze_prompt_encoder=args.freeze_prompt_encoder,
         lr=args.lr,
         weight_decay=args.weight_decay,
-        num_points=args.num_points
+        num_points=args.num_points,
+        is_mask_diff=args.mask_diff
     )
 
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")

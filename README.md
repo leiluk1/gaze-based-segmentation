@@ -102,7 +102,8 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 * `--disable_aug`: Disable data augmentation;
 * `--freeze_prompt_encoder`: Freeze prompt emcoder;
 * `--gt_in_ram`: Store gt in RAM during data processing;
-* `--num_points`: Number of points in the prompt.
+* `--num_points`: Number of points in the prompt;
+* `--mask_diff`: Approach based on the mask difference.
 
 
 For instance, assume that the preprocessed data is stored in directory `data`, the MedSAM model is placed in `weigths/medsam` folder, and the model checkpoints should be saved in `train_point_prompt`. Then, to train the model, run the following commands:
@@ -168,6 +169,22 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --num_workers 0 \
     --num_points 20 \
     --no-gt_in_ram
+    ```
+
+    An example of fine-tuning based on the mask difference with 20 points prompt:
+
+    ```
+    python src/train_point_prompt.py \
+    --tr_npy_path "data/WORD/train_CT_Abd/" \
+    --val_npy_path "data/WORD/val_CT_Abd/" \
+    --test_npy_path "data/WORD/test_CT_Abd/" \
+    --medsam_checkpoint "weights/medsam/medsam_vit_b.pth" \
+    --max_epochs 200 \
+    --batch_size 24 \
+    --num_workers 0 \
+    --num_points 20 \
+    --no-gt_in_ram \
+    --mask_diff
     ```
 
 
