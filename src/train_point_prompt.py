@@ -108,6 +108,12 @@ def get_parser():
         default=False,
         action=argparse.BooleanOptionalAction
     )
+    parser.add_argument(
+        '--base_medsam_checkpoint',
+        type=str,
+        default=None,
+        help="Path to the base predictor (MedSAM) checkpoint."
+    )
 
     return parser
 
@@ -132,7 +138,8 @@ def train(exp_name, args):
         lr=args.lr,
         weight_decay=args.weight_decay,
         num_points=args.num_points,
-        is_mask_diff=args.mask_diff
+        is_mask_diff=args.mask_diff,
+        base_medsam_checkpoint=args.base_medsam_checkpoint
     )
 
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")

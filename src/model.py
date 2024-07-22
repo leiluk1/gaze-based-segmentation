@@ -18,24 +18,22 @@ class MedSAM(pl.LightningModule):
         lr: float = 0.00005,
         weight_decay: float = 0.01,
         num_points: int = 20,
-        is_mask_diff: bool = False
+        is_mask_diff: bool = False,
+        base_medsam_checkpoint: str = None
     ):
         super().__init__()
         self.sam_model = sam_model_registry[backbone](checkpoint=medsam_checkpoint)
-        self.image_encoder = self.sam_model.image_encoder
-        self.mask_decoder = self.sam_model.mask_decoder
-        self.prompt_encoder = self.sam_model.prompt_encoder
 
         self.freeze_prompt_encoder = freeze_prompt_encoder
         if self.freeze_prompt_encoder:
             # freeze prompt encoder
-            for param in self.prompt_encoder.parameters():
+            for param in self.sam_model.prompt_encoder.parameters():
                 param.requires_grad = False
             print("Prompt encoder is frozen")
 
         self.freeze_image_encoder = freeze_image_encoder
         if self.freeze_image_encoder:
-            for param in self.image_encoder.parameters():
+            for param in self.sam_model.image_encoder.parameters():
                 param.requires_grad = False
             print("Image encoder is frozen")
 
@@ -54,19 +52,29 @@ class MedSAM(pl.LightningModule):
 
         self.num_points = num_points
         self.is_mask_diff = is_mask_diff
+        self.base_medsam_checkpoint = base_medsam_checkpoint
+
+        if self.is_mask_diff and self.base_medsam_checkpoint is not None:
+            # load base model
+            self.base_sam = sam_model_registry[backbone](checkpoint=medsam_checkpoint)
+            base_medsam_checkpoint = torch.load(self.base_medsam_checkpoint)
+            self.base_sam.load_state_dict(base_medsam_checkpoint['state_dict'], strict=False)
+            # freeze base model
+            for param in self.base_sam.parameters():
+                param.requires_grad = False
 
     def forward(self, image, point_prompt):
-        image_embedding = self.image_encoder(image)  # (B, 256, 64, 64)
+        image_embedding = self.sam_model.image_encoder(image)  # (B, 256, 64, 64)
         # not need to convert box to 1024x1024 grid
         # bbox is already in 1024x1024
-        sparse_embeddings, dense_embeddings = self.prompt_encoder(
+        sparse_embeddings, dense_embeddings = self.sam_model.prompt_encoder(
             points=point_prompt,
             boxes=None,
             masks=None,
         )
-        low_res_masks, _ = self.mask_decoder(
+        low_res_masks, _ = self.sam_model.mask_decoder(
             image_embeddings=image_embedding,  # (B, 256, 64, 64)
-            image_pe=self.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
+            image_pe=self.sam_model.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
             sparse_prompt_embeddings=sparse_embeddings,  # (B, 2, 256)
             dense_prompt_embeddings=dense_embeddings,  # (B, 256, 64, 64)
             multimask_output=False,
@@ -75,16 +83,21 @@ class MedSAM(pl.LightningModule):
         return low_res_masks
 
     def base_pred(self, image, point_prompt):
+        if self.base_medsam_checkpoint is not None:
+            base_sam = self.base_sam
+        else:
+            base_sam = self.sam_model
+        base_sam.eval()
         with torch.no_grad():
-            image_embedding = self.image_encoder(image)  # (B, 256, 64, 64)  
-            sparse_embeddings, dense_embeddings = self.prompt_encoder(
+            image_embedding = base_sam.image_encoder(image)  # (B, 256, 64, 64)
+            sparse_embeddings, dense_embeddings = base_sam.prompt_encoder(
                 points=point_prompt,
                 boxes=None,
                 masks=None,
             )
-            low_res_masks, _ = self.mask_decoder(
+            low_res_masks, _ = base_sam.mask_decoder(
                 image_embeddings=image_embedding,  # (B, 256, 64, 64)
-                image_pe=self.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
+                image_pe=base_sam.prompt_encoder.get_dense_pe(),  # (1, 256, 64, 64)
                 sparse_prompt_embeddings=sparse_embeddings,  # (B, 2, 256)
                 dense_prompt_embeddings=dense_embeddings,  # (B, 256, 64, 64)
                 multimask_output=False,
@@ -96,6 +109,7 @@ class MedSAM(pl.LightningModule):
                 mode="bilinear",
                 align_corners=False,
             )
+        base_sam.train()
 
         return ori_res_masks
 

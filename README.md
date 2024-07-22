@@ -103,7 +103,8 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 * `--freeze_prompt_encoder`: Freeze prompt emcoder;
 * `--gt_in_ram`: Store gt in RAM during data processing;
 * `--num_points`: Number of points in the prompt;
-* `--mask_diff`: Approach based on the mask difference.
+* `--mask_diff`: Approach based on the mask difference;
+* `--base_medsam_checkpoint`: Path to the MedSAM base predictor checkpoint (used only with mask_diff approach; if not provided, base predictor is ours MedSAM model copy).
 
 
 For instance, assume that the preprocessed data is stored in directory `data`, the MedSAM model is placed in `weigths/medsam` folder, and the model checkpoints should be saved in `train_point_prompt`. Then, to train the model, run the following commands:
