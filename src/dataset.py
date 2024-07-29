@@ -5,7 +5,7 @@ import lightning as pl
 from os.path import join
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset, DataLoader
 import cv2
 
 
@@ -50,17 +50,17 @@ class NpyDataset(Dataset):
                             mask, cnts, i, (255, 255, 255), thickness=cv2.FILLED
                         )
                         gt_segm = np.uint8(mask == 255)
-                        data.append([img_path, gt_segm])
+                        data.append([img_path, gt_segm, label_id])
                     else:
                         assert (self.image_size, self.image_size) == gt2D.shape, "GT size does not match image size"
-                        data.append([img_path, cnts, i])
+                        data.append([img_path, cnts, i, label_id])
         return data
 
     def __getitem__(self, index):
         if self.gt_in_ram:
-            img_path, gt2D = self.data[index]
+            img_path, gt2D, organ_class = self.data[index]
         else:
-            img_path, cnts, i = self.data[index]
+            img_path, cnts, i, organ_class = self.data[index]
             mask = np.zeros((self.image_size, self.image_size))
             cv2.drawContours(
                 mask, cnts, i, (255, 255, 255), thickness=cv2.FILLED
@@ -92,7 +92,8 @@ class NpyDataset(Dataset):
             "image": torch.tensor(img_1024).float(),
             "gt2D": torch.tensor(gt2D_256[None, :, :]).long(),
             "gt2D_orig": torch.tensor(gt2D).long(),
-            "image_name": img_name
+            "image_name": img_name,
+            "organ_class": organ_class
         }
 
 

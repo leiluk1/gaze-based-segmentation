@@ -6,6 +6,7 @@ from segment_anything import sam_model_registry
 from torch import nn
 import torch.nn.functional as F
 from torchmetrics import Dice, JaccardIndex
+import matplotlib.pyplot as plt
 
 
 class MedSAM(pl.LightningModule):
@@ -19,7 +20,9 @@ class MedSAM(pl.LightningModule):
         weight_decay: float = 0.01,
         num_points: int = 20,
         is_mask_diff: bool = False,
-        base_medsam_checkpoint: str = None
+        base_medsam_checkpoint: str = None,
+        eval_per_organ: bool = False,
+        logger=None
     ):
         super().__init__()
         self.sam_model = sam_model_registry[backbone](checkpoint=medsam_checkpoint)
@@ -62,6 +65,10 @@ class MedSAM(pl.LightningModule):
             # freeze base model
             for param in self.base_sam.parameters():
                 param.requires_grad = False
+
+        self.eval_per_organ = eval_per_organ
+
+        self.clearml_logger = logger
 
     def forward(self, image, point_prompt):
         image_embedding = self.sam_model.image_encoder(image)  # (B, 256, 64, 64)
@@ -134,24 +141,88 @@ class MedSAM(pl.LightningModule):
 
         if calculate_metrics:
             logs.update(self._compute_metrics(medsam_lite_pred, gt2D, phase))
+            if self.eval_per_organ:
+                classes = batch["organ_class"]
+                logs.update(self._compute_metrics_per_organ(medsam_lite_pred, gt2D, classes, phase))
 
         self.log_dict(logs, prog_bar=True, on_epoch=True, on_step=False)
 
+        if phase == "test":
+            if batch_idx < 10:
+                pred_binary = medsam_lite_pred[0] > self.sam_model.mask_threshold
+                img_name = batch["image_name"][0]
+
+                plt.figure(figsize=(10, 5))
+
+                plt.subplot(1, 2, 1)
+                plt.imshow(image[0].squeeze().detach().cpu().permute(1, 2, 0))
+                plt.imshow(pred_binary.squeeze().detach().cpu())
+                plt.title("Predicted mask")
+
+                plt.subplot(1, 2, 2)
+                plt.imshow(image[0].squeeze().detach().cpu().permute(1, 2, 0))
+                plt.imshow(gt2D_orig[0].squeeze().detach().cpu())
+                plt.title("Ground Truth mask")
+
+                self.clearml_logger.report_matplotlib_figure(
+                    title=f"Prediction, GT: {img_name}",
+                    series="Mask pred visualization",
+                    iteration=batch_idx,
+                    figure=plt
+                )
+
+                plt.close()
+
         return loss, logs
+
+    def _compute_metrics_per_organ(self, pred_logits, gt_mask, classes, phase):
+        pred_binary = pred_logits > self.sam_model.mask_threshold
+        num_classes = torch.max(classes).item()
+        for organ in range(1, num_classes + 1):
+            dice_arr = []
+            jaccard_arr = []
+            organ_mask = (classes == organ)
+            for i in range(pred_logits.size(0)):
+                if organ_mask[i]:
+                    dice = self.dice_score(pred_logits[i], gt_mask[i]).item()
+                    jaccard = self.jaccard(pred_binary[i], gt_mask[i]).item()
+                    dice_arr.append(dice)
+                    jaccard_arr.append(jaccard)
+            dice_mean = np.mean(dice_arr)
+            dice_std = np.std(dice_arr)
+
+            jaccard_mean = np.mean(jaccard_arr)
+            jaccard_std = np.std(jaccard_arr)
+
+            metrics = {
+                f"iou_mean/{phase}/{organ}": jaccard_mean,
+                f"iou_std/{phase}/{organ}": jaccard_std,
+                f"dice_mean/{phase}/{organ}": dice_mean,
+                f"dice_std/{phase}/{organ}": dice_std
+            }
+
+        return metrics
 
     def _compute_metrics(self, pred_logits, gt_mask, phase):
         pred_binary = pred_logits > self.sam_model.mask_threshold
-        jaccard = self.jaccard(pred_binary, gt_mask)
-        # dice = self.dice_score(pred_logits, gt_mask)
         dice_arr = []
+        jaccard_arr = []
         for i in range(pred_logits.size(0)):
             dice = self.dice_score(pred_logits[i], gt_mask[i]).item()
+            jaccard = self.jaccard(pred_binary[i], gt_mask[i]).item()
             dice_arr.append(dice)
-        dice = np.mean(dice_arr)
+            jaccard_arr.append(jaccard)
+        dice_mean = np.mean(dice_arr)
+        dice_std = np.std(dice_arr)
+
+        jaccard_mean = np.mean(jaccard_arr)
+        jaccard_std = np.std(jaccard_arr)
 
         metrics = {
-            f"iou/{phase}": jaccard,
-            f"dice/{phase}": dice,
+            f"iou_mean/{phase}": jaccard_mean,
+            f"iou_std/{phase}": jaccard_std,
+            f"dice_mean/{phase}": dice_mean,
+            f"dice_std/{phase}": dice_std,
         }
 
         return metrics
@@ -275,9 +346,10 @@ class MedSAM(pl.LightningModule):
         for i in range(gt2D_orig.shape[0]):  # B
             gt2D = gt2D_orig[i].cpu().numpy()
             y_indices, x_indices = np.where(gt2D == 1)
-            x_point = np.random.choice(x_indices)
-            y_point = np.random.choice(y_indices)
-            coords_base = np.array([x_point, y_point])[None, ...]
+            chosen_indices = np.random.choice(len(x_indices), self.num_points, replace=False)
+            x_points = x_indices[chosen_indices]
+            y_points = y_indices[chosen_indices]
+            coords_base = np.array([x_points, y_points]).T # (N, 2)
             coords_torch_base.append(torch.tensor(coords_base).float())
         coords_torch_base = torch.stack(coords_torch_base).cuda()  # (B, N, 2)
         labels_torch_base = torch.ones(coords_torch_base.shape[0], coords_torch_base.shape[1]).long()

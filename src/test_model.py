@@ -78,24 +78,32 @@ def get_parser():
         default=1,
         help="Number of points in prompt to test on."
     )
+    parser.add_argument(
+        '--eval_per_organ',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
 
     return parser
 
 
 def test(exp_name, args):
-    Task.init(
+    task = Task.init(
             project_name="medsam_point",
             tags=[
                 "testing",
                 "1_point",
             ],
             task_name=exp_name,
+            auto_connect_frameworks={"matplotlib": False},
     )
 
     medsam_model = MedSAM(
         medsam_checkpoint=args.medsam_checkpoint,
         freeze_image_encoder=True,
-        num_points=args.num_points
+        num_points=args.num_points,
+        eval_per_organ=args.eval_per_organ,
+        logger=task.get_logger()
     )
     checkpoint = torch.load("logs/" + args.checkpoint)
     medsam_model.load_state_dict(checkpoint['state_dict'], strict=False)
@@ -113,12 +121,12 @@ def test(exp_name, args):
 
     trainer = pl.Trainer()
 
-    test_dice = trainer.test(
+    test_metrics = trainer.test(
         medsam_model,
         datamodule.test_dataloader()
-    )[0]["dice/test"]
+    )[0]
 
-    return test_dice
+    return test_metrics
 
 
 def main():
@@ -134,9 +142,7 @@ def main():
     torch.cuda.manual_seed(seed)
 
     exp_name = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-    test_dice = test(exp_name, args)
-    print(test_dice)
-
+    test_metrics = test(exp_name, args)
 
 if __name__ == "__main__":
     main()
