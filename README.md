@@ -104,7 +104,8 @@ The training script `src/train_point_prompt.py` takes the following arguments:
 * `--gt_in_ram`: Store gt in RAM during data processing;
 * `--num_points`: Number of points in the prompt;
 * `--mask_diff`: Approach based on the mask difference;
-* `--base_medsam_checkpoint`: Path to the MedSAM base predictor checkpoint (used only with mask_diff approach; if not provided, base predictor is ours MedSAM model copy).
+* `--base_medsam_checkpoint`: Path to the MedSAM base predictor checkpoint (used only with mask_diff approach; if not provided, base predictor is ours MedSAM model copy);
+* `--eval_per_organ`: Add performance comparison of different organs (evaluation per each class).
 
 
 For instance, assume that the preprocessed data is stored in directory `data`, the MedSAM model is placed in `weigths/medsam` folder, and the model checkpoints should be saved in `train_point_prompt`. Then, to train the model, run the following commands:
@@ -154,7 +155,8 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --max_epochs 200 \
     --batch_size 24 \
     --num_workers 0 \
-    --no-gt_in_ram
+    --no-gt_in_ram \
+    --eval_per_organ
     ```
 
     An example of the prompt with 20 points:
@@ -169,7 +171,8 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --batch_size 24 \
     --num_workers 0 \
     --num_points 20 \
-    --no-gt_in_ram
+    --no-gt_in_ram \
+    --eval_per_organ
     ```
 
     An example of fine-tuning based on the mask difference with 20 points prompt:
@@ -185,7 +188,8 @@ For instance, assume that the preprocessed data is stored in directory `data`, t
     --num_workers 0 \
     --num_points 20 \
     --no-gt_in_ram \
-    --mask_diff
+    --mask_diff \
+    --eval_per_organ
     ```
 
 
@@ -202,5 +206,6 @@ One point prompt:
     --checkpoint "exp_name=0-epoch=42-val_loss=0.00.ckpt" \
     --batch_size 24 \
     --num_workers 0 \
-    --num_points 1
+    --num_points 1 \
+    --eval_per_organ
     ```

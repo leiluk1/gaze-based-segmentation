@@ -114,12 +114,17 @@ def get_parser():
         default=None,
         help="Path to the base predictor (MedSAM) checkpoint."
     )
+    parser.add_argument(
+        '--eval_per_organ',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
 
     return parser
 
 
 def train(exp_name, args):
-    Task.init(
+    task = Task.init(
             project_name="medsam_point",
             tags=[
                 "fine_tuning",
@@ -139,7 +144,9 @@ def train(exp_name, args):
         weight_decay=args.weight_decay,
         num_points=args.num_points,
         is_mask_diff=args.mask_diff,
-        base_medsam_checkpoint=args.base_medsam_checkpoint
+        base_medsam_checkpoint=args.base_medsam_checkpoint,
+        eval_per_organ=args.eval_per_organ,
+        logger=task.get_logger()
     )
 
     print(f"MedSAM size: {sum(p.numel() for p in medsam_model.parameters())}")
