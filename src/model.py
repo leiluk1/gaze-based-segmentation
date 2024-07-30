@@ -1,4 +1,5 @@
 import lightning as pl
+import matplotlib.pyplot as plt
 import monai
 import numpy as np
 import torch
@@ -6,7 +7,7 @@ from segment_anything import sam_model_registry
 from torch import nn
 import torch.nn.functional as F
 from torchmetrics import Dice, JaccardIndex
-import matplotlib.pyplot as plt
+import torchvision
 
 
 class MedSAM(pl.LightningModule):
@@ -151,17 +152,23 @@ class MedSAM(pl.LightningModule):
             if batch_idx < 10:
                 pred_binary = medsam_lite_pred[0] > self.sam_model.mask_threshold
                 img_name = batch["image_name"][0]
+                orig_img = image[0].squeeze().detach().cpu().permute(1, 2, 0)
+                pred_mask = torchvision.transforms.functional.resize(
+                                pred_binary,
+                                (1024, 1024),
+                                interpolation=2
+                )
 
                 plt.figure(figsize=(10, 5))
-
+                
                 plt.subplot(1, 2, 1)
-                plt.imshow(image[0].squeeze().detach().cpu().permute(1, 2, 0))
-                plt.imshow(pred_binary.squeeze().detach().cpu())
+                plt.imshow(orig_img, cmap='gray')
+                plt.imshow(pred_mask.squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
                 plt.title("Predicted mask")
 
                 plt.subplot(1, 2, 2)
-                plt.imshow(image[0].squeeze().detach().cpu().permute(1, 2, 0))
-                plt.imshow(gt2D_orig[0].squeeze().detach().cpu())
+                plt.imshow(orig_img, cmap='gray')
+                plt.imshow(gt2D_orig[0].squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
                 plt.title("Ground Truth mask")
 
                 self.clearml_logger.report_matplotlib_figure(
