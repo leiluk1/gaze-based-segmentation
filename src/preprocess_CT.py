@@ -49,11 +49,6 @@ def main():
         if os.path.exists(join(nii_path, name.split(gt_name_suffix)[0] + img_name_suffix))
     ]
     print(f"after sanity check \# files {len(names)=}")
-
-    # set label ids that are excluded
-    remove_label_ids = [
-        12
-    ]  # remove deodenum since it is scattered in the image, which is hard to specify with the bounding box
     tumor_id = None  # only set this when there are multiple tumors; convert semantic masks to instance masks
     # set window level and width
     # https://radiopaedia.org/articles/windowing-ct
@@ -66,9 +61,6 @@ def main():
         gt_name = name
         gt_sitk = sitk.ReadImage(join(gt_path, gt_name))
         gt_data_ori = np.uint8(sitk.GetArrayFromImage(gt_sitk))
-        # remove label ids
-        for remove_label_id in remove_label_ids:
-            gt_data_ori[gt_data_ori == remove_label_id] = 0
         # label tumor masks as instances and remove from gt_data_ori
         if tumor_id is not None:
             tumor_bw = np.uint8(gt_data_ori == tumor_id)
