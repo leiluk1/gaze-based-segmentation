@@ -123,6 +123,8 @@ class MedSAM(pl.LightningModule):
         image = batch["image"]
         gt2D = batch["gt2D"]  # (B, 256, 256)
         gt2D_orig = batch["gt2D_orig"]  # (B, 1024, 1024)
+        
+        low_base_pred_logits = None
 
         if self.is_mask_diff:
             point_prompt, low_base_pred_logits, base_pred_binary = self.generate_prompt_mask_diff(image, gt2D_orig)
