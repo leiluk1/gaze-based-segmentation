@@ -23,7 +23,7 @@ class NpyDataset(Dataset):
         self.data = self.read_data()
 
     def __len__(self):
-        return len(self.gt_path_files)
+        return len(self.data)
 
     def read_data(self):
         data = []
