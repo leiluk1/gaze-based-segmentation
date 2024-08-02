@@ -227,29 +227,30 @@ class MedSAM(pl.LightningModule):
 
     def _compute_metrics_per_organ(self, pred_logits, gt_mask, classes, phase):
         pred_binary = pred_logits > self.sam_model.mask_threshold
-        num_classes = torch.max(classes).item()
-        for organ in range(1, num_classes + 1):
+        num_classes = torch.max(classes).item()  
+        metrics = {}
+        for organ in range(1, num_classes + 1): 
             dice_arr = []
             jaccard_arr = []
-            organ_mask = (classes == organ)
+            organ_mask = (classes == organ)  
             for i in range(pred_logits.size(0)):
-                if organ_mask[i]:
+                if organ_mask[i].item():
                     dice = self.dice_score(pred_logits[i], gt_mask[i]).item()
                     jaccard = self.jaccard(pred_binary[i], gt_mask[i]).item()
                     dice_arr.append(dice)
                     jaccard_arr.append(jaccard)
-            dice_mean = np.mean(dice_arr)
-            dice_std = np.std(dice_arr)
 
-            jaccard_mean = np.mean(jaccard_arr)
-            jaccard_std = np.std(jaccard_arr)
+            if dice_arr and jaccard_arr:
+                dice_mean = np.mean(dice_arr)
+                dice_std = np.std(dice_arr)
 
-            metrics = {
-                f"iou_mean/{phase}/{organ}": jaccard_mean,
-                f"iou_std/{phase}/{organ}": jaccard_std,
-                f"dice_mean/{phase}/{organ}": dice_mean,
-                f"dice_std/{phase}/{organ}": dice_std
-            }
+                jaccard_mean = np.mean(jaccard_arr)
+                jaccard_std = np.std(jaccard_arr)
+
+                metrics[f"iou_mean/{phase}/{organ}"] = jaccard_mean
+                metrics[f"iou_std/{phase}/{organ}"] = jaccard_std
+                metrics[f"dice_mean/{phase}/{organ}"] = dice_mean
+                metrics[f"dice_std/{phase}/{organ}"] = dice_std
 
         return metrics
 
