@@ -109,6 +109,11 @@ def get_parser():
         action=argparse.BooleanOptionalAction
     )
     parser.add_argument(
+        '--mask_prompt',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
         '--base_medsam_checkpoint',
         type=str,
         default=None,
@@ -144,6 +149,7 @@ def train(exp_name, args):
         weight_decay=args.weight_decay,
         num_points=args.num_points,
         is_mask_diff=args.mask_diff,
+        is_mask_prompt=args.mask_prompt,
         base_medsam_checkpoint=args.base_medsam_checkpoint,
         eval_per_organ=args.eval_per_organ,
         logger=task.get_logger()
@@ -194,7 +200,7 @@ def train(exp_name, args):
     test_dice = trainer.test(
         medsam_model,
         datamodule.test_dataloader()
-    )[0]["dice/test"]
+    )[0]["dice_mean/test"]
 
     return test_dice
 

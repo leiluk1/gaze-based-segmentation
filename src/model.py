@@ -1,3 +1,4 @@
+import cv2
 import lightning as pl
 import matplotlib.pyplot as plt
 import monai
@@ -21,6 +22,7 @@ class MedSAM(pl.LightningModule):
         weight_decay: float = 0.01,
         num_points: int = 20,
         is_mask_diff: bool = False,
+        is_mask_prompt: bool = False,
         base_medsam_checkpoint: str = None,
         eval_per_organ: bool = False,
         logger=None
@@ -56,6 +58,7 @@ class MedSAM(pl.LightningModule):
 
         self.num_points = num_points
         self.is_mask_diff = is_mask_diff
+        self.is_mask_prompt = is_mask_prompt
         self.base_medsam_checkpoint = base_medsam_checkpoint
 
         if self.is_mask_diff and self.base_medsam_checkpoint is not None:
@@ -71,14 +74,14 @@ class MedSAM(pl.LightningModule):
 
         self.clearml_logger = logger
 
-    def forward(self, image, point_prompt):
+    def forward(self, image, point_prompt, mask_prompt=None):
         image_embedding = self.sam_model.image_encoder(image)  # (B, 256, 64, 64)
         # not need to convert box to 1024x1024 grid
         # bbox is already in 1024x1024
         sparse_embeddings, dense_embeddings = self.sam_model.prompt_encoder(
             points=point_prompt,
             boxes=None,
-            masks=None,
+            masks=mask_prompt,
         )
         low_res_masks, _ = self.sam_model.mask_decoder(
             image_embeddings=image_embedding,  # (B, 256, 64, 64)
@@ -111,15 +114,9 @@ class MedSAM(pl.LightningModule):
                 multimask_output=False,
             )  # (B, 1, 256, 256)
 
-            ori_res_masks = F.interpolate(
-                low_res_masks,
-                size=(image.shape[2], image.shape[3]),
-                mode="bilinear",
-                align_corners=False,
-            )
         base_sam.train()
 
-        return ori_res_masks
+        return low_res_masks
 
     def _shared_step(self, batch, batch_idx,
                      phase: str, calculate_metrics: bool = True):
@@ -128,11 +125,13 @@ class MedSAM(pl.LightningModule):
         gt2D_orig = batch["gt2D_orig"]  # (B, 1024, 1024)
 
         if self.is_mask_diff:
-            point_prompt = self.generate_prompt_mask_diff(image, gt2D_orig)
+            point_prompt, low_base_pred_logits, base_pred_binary = self.generate_prompt_mask_diff(image, gt2D_orig)
+            if not self.is_mask_prompt:
+                low_base_pred_logits = None
         else:
             point_prompt = self.generate_point_prompt(gt2D_orig, phase)
 
-        medsam_lite_pred = self(image, point_prompt)
+        medsam_lite_pred = self(image, point_prompt, low_base_pred_logits)
         loss = self.seg_loss(medsam_lite_pred, gt2D) + self.ce_loss(medsam_lite_pred, gt2D.float())
 
         logs = {
@@ -160,7 +159,7 @@ class MedSAM(pl.LightningModule):
                 )
 
                 plt.figure(figsize=(10, 5))
-                
+
                 plt.subplot(1, 2, 1)
                 plt.imshow(orig_img, cmap='gray')
                 plt.imshow(pred_mask.squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
@@ -172,7 +171,51 @@ class MedSAM(pl.LightningModule):
                 plt.title("Ground Truth mask")
 
                 self.clearml_logger.report_matplotlib_figure(
-                    title=f"Prediction, GT: {img_name}",
+                    title=f"Test Prediction: {img_name}",
+                    series="Mask pred visualization",
+                    iteration=batch_idx,
+                    figure=plt
+                )
+
+                plt.close()
+
+        if phase == "val" and self.is_mask_diff:
+            if batch_idx % 5 == 0:
+                orig_img = image[0].squeeze().detach().cpu().permute(1, 2, 0)
+                img_name = batch["image_name"][0]
+                img = np.load("./data/WORD/val_CT_Abd/imgs/" + img_name, 'r', allow_pickle=True)
+                img = (img * 255).astype(np.uint8)
+
+                coords = point_prompt[0][0].cpu().tolist()
+
+                pred_binary = medsam_lite_pred[0] > self.sam_model.mask_threshold
+                pred_mask = torchvision.transforms.functional.resize(
+                                pred_binary,
+                                (1024, 1024),
+                                interpolation=2
+                )
+
+                fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+
+                axs[0].imshow(orig_img, cmap='gray')
+                axs[0].imshow(base_pred_binary[0].squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
+                axs[0].set_title("Base prediction mask")
+
+                axs[1].imshow(orig_img, cmap='gray')
+                axs[1].imshow(gt2D_orig[0].squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
+                axs[1].set_title("Ground Truth mask")
+
+                for x, y in coords:
+                    cv2.circle(img, (int(x), int(y)), 5, (0, 0, 255), -1)
+                axs[2].imshow(img)
+                axs[2].set_title("Generated points from mask differences")
+
+                axs[3].imshow(orig_img, cmap='gray')
+                axs[3].imshow(pred_mask.squeeze().detach().cpu(), alpha=0.5, cmap='viridis')
+                axs[3].set_title("Final predicted mask")
+
+                self.clearml_logger.report_matplotlib_figure(
+                    title=f"Validation Prediction: {img_name}",
                     series="Mask pred visualization",
                     iteration=batch_idx,
                     figure=plt
@@ -362,7 +405,14 @@ class MedSAM(pl.LightningModule):
         labels_torch_base = torch.ones(coords_torch_base.shape[0], coords_torch_base.shape[1]).long()
         point_prompt = (coords_torch_base, labels_torch_base)
 
-        base_pred_logits = self.base_pred(image, point_prompt)
+        low_base_pred_logits = self.base_pred(image, point_prompt)
+        base_pred_logits = F.interpolate(
+            low_base_pred_logits,
+            size=(image.shape[2], image.shape[3]),
+            mode="bilinear",
+            align_corners=False,
+            )
+
         base_pred_binary = (base_pred_logits > self.sam_model.mask_threshold).int()
         gt_mask = gt2D_orig.unsqueeze(1)
         delta = (base_pred_binary - (gt_mask > 0).int()).abs().squeeze(1)
@@ -399,4 +449,4 @@ class MedSAM(pl.LightningModule):
             device=self.device
         )
 
-        return (coords_torch, labels_torch)
+        return (coords_torch, labels_torch), low_base_pred_logits, base_pred_binary
