@@ -23,14 +23,13 @@ class PointPromptDemo:
         ax.imshow(mask_image)
 
     @torch.no_grad()
-    def infer(self, gt, num_points=20, prop_out=0.8):
-
+    def infer(self, gt, num_points=20, prop_out=0.8, mask_prompt=None):
         point_prompt = self.generate_point_prompt(gt, num_points, prop_out)
 
         sparse_embeddings, dense_embeddings = self.model.prompt_encoder(
-            points = point_prompt,
-            boxes = None,
-            masks = None,
+            points=point_prompt,
+            boxes=None,
+            masks=mask_prompt,
         )
         low_res_logits, _ = self.model.mask_decoder(
             image_embeddings=self.image_embeddings, # (B, 256, 64, 64)
@@ -41,18 +40,18 @@ class PointPromptDemo:
         )
 
         low_res_probs = torch.sigmoid(low_res_logits)  # (1, 1, 256, 256)
-        low_res_pred = F.interpolate(
+
+        ori_res_pred = F.interpolate(
             low_res_probs,
-            size = self.img_size,
-            mode = 'bilinear',
-            align_corners = False
+            size=self.img_size,
+            mode='bilinear',
+            align_corners=False
         )
-        low_res_pred = low_res_pred.detach().cpu().numpy().squeeze()
+        ori_res_pred = ori_res_pred.detach().cpu().numpy().squeeze()
+        seg = np.uint8(ori_res_pred > 0.5)
 
-        seg = np.uint8(low_res_pred > 0.5)
+        return seg, low_res_logits
 
-        return seg
-    
     def generate_point_prompt(self, gt, num_points=20, prop_out=0.8):
         y_indices, x_indices = np.where(gt > 0)
         y_indices_out, x_indices_out = np.where(gt == 0)
@@ -67,7 +66,7 @@ class PointPromptDemo:
 
         x_points_out = x_indices_out[chosen_indices_out]
         y_points_out = y_indices_out[chosen_indices_out]
- 
+
         coords_in = np.array([x_points_in, y_points_in]).T
         coords_out = np.array([x_points_out, y_points_out]).T
         coords = np.concatenate((coords_in, coords_out), axis=0)
@@ -98,7 +97,7 @@ class PointPromptDemo:
         image_preprocess = self.preprocess_image(self.image)
         with torch.no_grad():
             self.image_embeddings = self.model.image_encoder(image_preprocess)
-    
+
     def preprocess_image(self, image):
         img_resize = cv2.resize(
             image,
