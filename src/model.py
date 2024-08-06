@@ -291,17 +291,29 @@ class MedSAM(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx):
         image = batch["image"]
-        coords_torch = batch["coords"]  # (B, 2)
+        gt2D_orig = batch.get("gt2D_orig", None)  # (B, 1024, 1024)
+        
+        low_base_pred_logits = None
 
-        labels_torch = torch.ones(coords_torch.shape[0]).long()  # (B,)
+        if gt2D_orig is not None:
+            if self.is_mask_diff:
+                point_prompt, low_base_pred_logits, _ = self.generate_prompt_mask_diff(image, gt2D_orig)
+                if not self.is_mask_prompt:
+                    low_base_pred_logits = None
+            else:
+                point_prompt = self.generate_point_prompt(gt2D_orig)
+            coords = point_prompt[0]
+        else:
+            coords = batch["coords"]
+            low_base_pred_logits = batch.get("low_base_pred_logits", None)
+            coords_torch = torch.tensor(coords).float()
+            coords_torch = torch.stack(coords_torch)
+            labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
+            point_prompt = (coords_torch, labels_torch)
 
-        labels_torch = labels_torch.unsqueeze(1)  # (B, 1)
+        medsam_lite_pred = self(image, point_prompt, low_base_pred_logits)
 
-        point_prompt = (coords_torch, labels_torch)
-
-        medsam_lite_pred = self(image, point_prompt)
-
-        return medsam_lite_pred
+        return medsam_lite_pred, coords
 
     def configure_optimizers(self):
 
@@ -330,7 +342,7 @@ class MedSAM(pl.LightningModule):
             }
         }
 
-    def generate_point_prompt(self, gt2D_orig, phase):
+    def generate_point_prompt(self, gt2D_orig, phase=None):
         assert self.num_points > 0, "The number of points in the prompt cannot be less than 1"
         coords_torch = []
         for i in range(gt2D_orig.shape[0]):  # B
@@ -372,7 +384,7 @@ class MedSAM(pl.LightningModule):
 
             coords_torch.append(torch.tensor(coords).float())
 
-        coords_torch = torch.stack(coords_torch).cuda()  # (B, N, 2)
+        coords_torch = torch.stack(coords_torch).to(gt2D_orig.device)  # (B, N, 2)
 
         # Fixed label (1)
         labels_torch = torch.ones(coords_torch.shape[0], coords_torch.shape[1]).long()  # (B, N)
@@ -404,7 +416,7 @@ class MedSAM(pl.LightningModule):
             y_points = y_indices[chosen_indices]
             coords_base = np.array([x_points, y_points]).T # (N, 2)
             coords_torch_base.append(torch.tensor(coords_base).float())
-        coords_torch_base = torch.stack(coords_torch_base).cuda()  # (B, N, 2)
+        coords_torch_base = torch.stack(coords_torch_base).to(gt2D_orig.device)  # (B, N, 2)
         labels_torch_base = torch.ones(coords_torch_base.shape[0], coords_torch_base.shape[1]).long()
         point_prompt = (coords_torch_base, labels_torch_base)
 
