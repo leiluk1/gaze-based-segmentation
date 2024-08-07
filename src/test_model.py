@@ -79,6 +79,22 @@ def get_parser():
         help="Number of points in prompt to test on."
     )
     parser.add_argument(
+        '--mask_diff',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
+        '--mask_prompt',
+        default=False,
+        action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
+        '--base_medsam_checkpoint',
+        type=str,
+        default=None,
+        help="Path to the base predictor (MedSAM) checkpoint."
+    )
+    parser.add_argument(
         '--eval_per_organ',
         default=False,
         action=argparse.BooleanOptionalAction
@@ -103,6 +119,9 @@ def test(exp_name, args):
         freeze_image_encoder=True,
         num_points=args.num_points,
         eval_per_organ=args.eval_per_organ,
+        is_mask_diff=args.mask_diff,
+        is_mask_prompt=args.mask_prompt,
+        base_medsam_checkpoint=args.base_medsam_checkpoint,
         logger=task.get_logger()
     )
     checkpoint = torch.load("logs/" + args.checkpoint)
@@ -121,12 +140,12 @@ def test(exp_name, args):
 
     trainer = pl.Trainer()
 
-    test_metrics = trainer.test(
+    test_dice = trainer.test(
         medsam_model,
         datamodule.test_dataloader()
-    )[0]
+    )[0]["dice_mean/test"]
 
-    return test_metrics
+    return test_dice
 
 
 def main():
@@ -142,7 +161,8 @@ def main():
     torch.cuda.manual_seed(seed)
 
     exp_name = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-    test_metrics = test(exp_name, args)
+    test_dice = test(exp_name, args)
+    print(test_dice)
 
 if __name__ == "__main__":
     main()
