@@ -1,4 +1,17 @@
-# Gaze-based Segmentation
+# Gaze-Assisted Medical Image Segmentation
+
+## Overview
+
+In this study, we explore semi-supervised medical image segmentation using human gaze as interactive input for correcting segmentation. We fine-tuned the Segment Anything Model in medical images (MedSAM) with gaze data from abdominal images and validated it on the WORD dataset, consisting of 120 CT scans of 16 abdominal organs. Ours gaze-assisted MedSAM outperformed state-of-the-art models on WORD benchmark, achieving Dice coefficients of 85.8%, 86.7%, 81.7%, and 90.5% for nnUNetV2, ResUNet, original MedSAM, and gaze-assisted MedSAM, respectively.
+
+## Usage
+
+The fine-tuned model checkpoints are integrated into eye-tracking software for interactive segmentation of medical images. Below is a demonstration of the usage of our gaze-assisted model in action
+
+![visualization2](https://github.com/user-attachments/assets/993c259a-5d24-43f2-9589-99d2dde231f2)
+
+
+The checkpoints of gaze-assisted MedSAM can be downloaded from Google Drive link.
 
 ## Getting started
 
